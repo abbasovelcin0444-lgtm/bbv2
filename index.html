@@ -1,0 +1,129 @@
+<!doctype html><html lang="az"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Mafya Klubu</title>
+<style>
+:root{--bg:#0b0b0e;--c:#17171d;--g:#d4a63a;--t:#eee;--m:#8a8a96;--r:#c0392b}
+*{box-sizing:border-box;margin:0}body{background:var(--bg);color:var(--t);font:15px system-ui,sans-serif;height:100dvh;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
+button,input,select{font:inherit;padding:9px 12px;border-radius:8px;border:1px solid #2a2a33;background:var(--c);color:var(--t);margin:3px 0}
+button{background:var(--g);color:#111;font-weight:700;border:0;cursor:pointer}button.x{background:var(--r);color:#fff}
+#top{display:flex;gap:10px;align-items:center;padding:8px 12px;background:var(--c);border-bottom:1px solid #2a2a33}
+#top img{width:42px;height:42px;border-radius:50%;object-fit:cover;border:2px solid var(--g)}#top div{flex:1;display:flex;flex-direction:column}small{color:var(--m)}
+.sb{width:70px;height:10px;background:#333;border-radius:5px;overflow:hidden}.sb i{display:block;height:100%;background:linear-gradient(90deg,#3c3,#fc3,#e33)}
+#v{flex:1;overflow:auto;padding:12px}#nav{display:flex;background:var(--c);padding-bottom:env(safe-area-inset-bottom)}#nav button{flex:1;border-radius:0;background:none;color:var(--m);font-size:20px}#nav button.on{color:var(--g)}
+.box{background:var(--c);border-radius:12px;padding:12px;margin:8px 0}h3{color:var(--g);margin:10px 0 4px}
+.ml{height:52dvh;overflow:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:6px}.ml p{background:var(--c);padding:8px 10px;border-radius:12px;max-width:85%;align-self:flex-start}.ml p.me{align-self:flex-end;background:#2b2412}
+.ml img,.ml video{max-width:100%;max-height:220px;border-radius:8px;display:block}.row{display:flex;gap:6px;align-items:center}.row>input{flex:1}
+#stage{display:flex;flex-wrap:wrap;gap:4px;background:#000}#stage video{width:100%;max-height:34dvh}#stage .a{display:none}
+.login{max-width:420px;margin:auto;padding:20px;display:flex;flex-direction:column;gap:6px;text-align:center}.login h1{color:var(--g);letter-spacing:3px}
+.card{display:inline-block;background:#fff;color:#111;border-radius:6px;padding:6px 8px;margin:2px;font-weight:700}
+</style></head><body>
+<div id="stage"></div><div id="top" hidden></div><div id="v"></div><div id="nav" hidden></div>
+<script>
+const db=(()=>{let ws,q=[],subs={},sid=0,rq=0,pend={},odr=[],ready=0;const J=JSON.stringify;
+const tx=m=>ready?ws.send(J(m)):q.push(J(m)),req=m=>new Promise(r=>{const n=++rq;pend[n]=r;tx({...m,q:n})});
+const snap=(p,v)=>({key:p.split('/').pop(),ref:ref(p),val:()=>v??null,exists:()=>v!=null,numChildren:()=>v&&typeof v=='object'?Object.keys(v).length:0,forEach:f=>{v&&typeof v=='object'&&Object.keys(v).sort().forEach(k=>f(snap(p+'/'+k,v[k])))}});
+function con(){ws=new WebSocket((location.protocol=='https:'?'wss://':'ws://')+location.host);
+ ws.onopen=()=>{ready=1;Object.entries(subs).forEach(([id,s])=>ws.send(J({t:'sub',id,p:s.p,m:s.m,lim:s.lim})));odr.forEach(p=>ws.send(J({t:'odr',p})));q.forEach(x=>ws.send(x));q=[]};
+ ws.onclose=()=>{ready=0;setTimeout(con,1500)};
+ ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.t=='r'){pend[m.q]&&pend[m.q](m);delete pend[m.q];return}const s=subs[m.id];if(!s)return;
+  if(m.t=='val')s.cb(snap(s.p,m.v));else if(m.t=='ca'){if(s.seen.has(m.k))return;s.seen.add(m.k);s.cb(snap(s.p+'/'+m.k,m.v))}else if(m.t=='cr'){s.seen.delete(m.k);s.cb(snap(s.p+'/'+m.k,null))}}}
+function ref(p,lim){p=p.replace(/^\/|\/$/g,'');const o={_s:[],child:k=>ref(p+'/'+k),limitToLast:n=>ref(p,n),
+ on(ev,cb){const id=String(++sid),m={value:'v',child_added:'ca',child_removed:'cr'}[ev];subs[id]={p,m,lim,cb,seen:new Set()};o._s.push(id);ready&&ws.send(J({t:'sub',id,p,m,lim}))},
+ off(){o._s.forEach(id=>{delete subs[id];ready&&ws.send(J({t:'unsub',id}))});o._s=[]},
+ once:()=>req({t:'get',p}).then(r=>snap(p,r.v)),
+ set:v=>{tx({t:'set',p,v});return Promise.resolve()},remove:()=>{tx({t:'rm',p});return Promise.resolve()},push:v=>{tx({t:'push',p,v});return Promise.resolve()},
+ transaction:async fn=>{for(;;){const r=await req({t:'get',p}),c=await req({t:'cas',p,old:r.v??null,v:fn(r.v??null)});if(c.ok)return}},
+ onDisconnect:()=>({remove:()=>{odr.push(p);ready&&ws.send(J({t:'odr',p}))}}),
+ orderByChild:k=>({equalTo:v=>({once:()=>req({t:'get',p}).then(r=>{const f={};Object.entries(r.v||{}).forEach(([a,b])=>b[k]===v&&(f[a]=b));return snap(p,f)})})})};return o}
+con();return{ref}})();
+const R="Kamandir,Diktator,Ajan,Azərbaycan naziri,Masallı səfiri,Musaküçə səfiri,Xaladelnik ustası,Xalça yuyan,Qeyfe,İsmail kartal,Nəriman axundzadə,Halit,Büyük baron eren eylül,Maygülü,Rutbesiz,Nərbala,Mator ustası,Sentr ustası,Çayxana müdiri,Nərd çempionu,Təkər təmircisi,Məhəllə komendantı,Öncələrin bəylərbəyi,Qonşu kəndin nümayəndəsi,Usta Məmməd,Dayıoğlu,Ehtiyatda olan paşa,Gizli general,Kulis arxası səfir,Ləqəbsiz qəhrəman,Bazar başçısı,Çay paylayan,Bazdiğ müdürü,Peraşki satan,Dükan yiyəsi,Nökər,Mekteb direktoru,Porno king,Eşşəy satan".split(",");
+const CG=[["Prima",5e3,5,99],["Pall Mall",8e3,6,36],["Camel",10e3,7,34],["L&M",12e3,7,32],["Marlboro",20e3,9,28],["Winston",22e3,9,26],["Kent",30e3,10,22],["Parliament",40e3,11,18],["Rothmans",60e3,12,14],["Davidoff",90e3,13,10],["Sobranie",150e3,14,6],["Puro",300e3,18,3]];
+const WH=[["Jim Beam",40e3],["Dewar's",50e3],["Famous Grouse",55e3],["Ballantine's",60e3],["Jameson",70e3],["Johnnie Walker",80e3],["Jack Daniel's",90e3],["Monkey Shoulder",110e3],["Bushmills",120e3],["Chivas Regal",150e3],["Glenfiddich",250e3],["The Macallan",400e3]].map(x=>[...x,20,99]);
+const VK=[["Nemiroff",20e3],["Russian Standard",35e3],["Skyy",40e3],["Smirnoff",45e3],["Absolut",60e3],["Finlandia",65e3],["Żubrówka",70e3],["Stolichnaya",80e3],["Tito's",90e3],["Grey Goose",150e3],["Belvedere",180e3],["Beluga",300e3]].map(x=>[...x,15,99]);
+const J=[["☕ Çay payla",15e3,45e3,0],["🔧 Maşın təmiri",3e4,9e4,0],["🧺 Xaladennik ustası",25e3,8e4,0],["🕶 Yeraltı iş #1",3e5,6e5,.25],["🕶 Yeraltı iş #2",4e5,9e5,.4]];
+const NPC={"Zülüş":["Gəldin, ay şirin... Əyləş, çayı soyutma.","Bu gün yorğun görünürsən, qoy qayğına qalım.","Bazarda kimsə sənin adını çəkirdi.","Mənimlə danışanın dərdi yarıya düşər."],"İlahə":["Musiqi başlayır, bu rəqs səninçün.","Sən gələndə otaq işıqlanır, bilirdin?","Bir stəkan ilə dünyanı unudaq.","Narahat olma, burada divarlar da sirr saxlayır."],"Akifə":["Hə, bu axşam kimi sevindirək?","Mənə qalsa, bu gecəni bitirməzdim.","Nə danışsan dinləyirəm, tələsmə.","Qoy sənə öz əlimlə nəsə hazırlayım."]};
+const $=s=>document.querySelector(s),E=(t,p,...k)=>{const e=Object.assign(document.createElement(t),p||{});e.append(...k);return e},D=(...k)=>E('div',{},...k),B=(t,f,c)=>E('button',{textContent:t,onclick:f,className:c||''}),H=t=>E('h3',{textContent:t});
+const fmt=n=>(n||0).toLocaleString('az')+' ₼',rd=f=>new Promise(r=>{const x=new FileReader;x.onload=()=>r(x.result);x.readAsDataURL(f)});
+const small=(f,w,sq)=>new Promise(r=>{const i=new Image;i.onload=()=>{const s=Math.min(i.width,i.height),k=sq?w/s:Math.min(1,w/Math.max(i.width,i.height)),c=E('canvas',{width:sq?w:i.width*k,height:sq?w:i.height*k});c.getContext('2d').drawImage(i,sq?(i.width-s)/2:0,sq?(i.height-s)/2:0,sq?s:i.width,sq?s:i.height,0,0,c.width,c.height);r(c.toDataURL('image/jpeg',.7))};i.src=URL.createObjectURL(f)});
+let me=null,offs=[],tab='chat',pic='';
+const add=a=>db.ref('users/'+me.id+'/money').transaction(v=>(v||0)+a),ss=d=>db.ref('users/'+me.id+'/stress').transaction(v=>Math.max(0,Math.min(100,(v||0)+d)));
+const U=async()=>{const s=await db.ref('users').once('value'),a=[];s.forEach(c=>{a.push({id:c.key,...c.val()})});return a};
+
+
+function login(){
+ const nm=E('input',{placeholder:'Adın'}),rk=E('select'),f=E('input',{type:'file',accept:'image/*',onchange:async()=>{pic=await small(f.files[0],96,1);pv.src=pic}}),pv=E('img',{style:'width:90px;height:90px;border-radius:50%;object-fit:cover;margin:auto;background:#222'}),idi=E('input',{placeholder:'Kimlik nömrən (başqa telefondan giriş)'});
+ R.slice(1).forEach(r=>rk.append(E('option',{textContent:r})));
+ $('#v').replaceChildren(E('div',{className:'login'},E('h1',{textContent:'MAFYA KLUBU'}),small_('Yalnız real oyunçular · oyun pulu'),pv,f,nm,rk,B('Qeydiyyat 250.000 ₼ ilə',async()=>{
+  if(!nm.value.trim()||!pic)return alert('Ad və foto seç');
+  const id=String(Math.floor(1e7+Math.random()*9e7)),k=(await db.ref('users').orderByChild('rank').equalTo('Kamandir').once('value')).numChildren();
+  await db.ref('users/'+id).set({name:nm.value.trim(),photo:pic,rank:k<2?'Kamandir':rk.value,money:250000,stress:0,ms:0,loan:0});enter(id)}),E('hr'),idi,B('ID ilə daxil ol',async()=>{const s=await db.ref('users/'+idi.value.trim()).once('value');s.exists()?enter(idi.value.trim()):alert('Tapılmadı')}),B('Ayarlar / Server qurulumu',()=>{enter(null,1)},'x')));
+}
+const small_=t=>E('small',{textContent:t});
+function enter(id,guide){
+ if(guide){$('#nav').hidden=false;nav();go('srv');return}
+ localStorage.mid=id;db.ref('users/'+id).on('value',s=>{if(!s.exists())return;me={id,...s.val()};topbar();});
+ db.ref('users/'+id).once('value').then(s=>{if(!s.exists()){delete localStorage.mid;return login()}$('#nav').hidden=false;$('#top').hidden=false;nav();go('chat')});
+ setInterval(()=>me&&me.stress>0&&ss(-1),15000);
+}
+function topbar(){$('#top').replaceChildren(E('img',{src:me.photo}),D(E('b',{textContent:me.name}),small_(me.rank+' · ID '+me.id)),E('b',{textContent:fmt(me.money),style:'color:var(--g)'}),D(E('small',{textContent:'😰 '+me.stress}),D()));const b=E('div',{className:'sb'},E('i',{style:'width:'+me.stress+'%'}));$('#top').lastChild.lastChild.replaceWith(b)}
+const TABS=[['chat','💬'],['voice','🎙'],['bj','🃏'],['city','🏙'],['bank','🏦'],['srv','⚙']];
+function nav(){$('#nav').replaceChildren(...TABS.map(([k,i])=>B(i,()=>go(k),tab==k?'on':'')))}
+function go(t){offs.forEach(f=>f());offs=[];tab=t;nav();$('#v').replaceChildren(T[t]())}
+
+function msg(m){const c=m.k=='i'?E('img',{src:m.x}):m.k=='v'?E('video',{src:m.x,controls:1}):m.k=='a'?E('audio',{src:m.x,controls:1}):E('span',{textContent:m.x});return E('p',{className:m.u==me.id?'me':''},E('small',{textContent:m.n+' · '+m.r}),D(c))}
+function chatBox(room,h){
+ const l=E('div',{className:'ml',style:h?'height:'+h:''}),i=E('input',{placeholder:'Mesaj yaz...'}),f=E('input',{type:'file',accept:'image/*,video/*',hidden:1}),snd=o=>db.ref('c/'+room).push({...o,u:me.id,n:me.name,r:me.rank,ts:Date.now()}),ref=db.ref('c/'+room).limitToLast(30);
+ ref.on('child_added',s=>{l.append(msg(s.val()));l.scrollTop=1e9});offs.push(()=>ref.off());
+ const send=()=>{if(i.value.trim()){snd({k:'t',x:i.value});i.value=''}};i.onkeydown=e=>e.key=='Enter'&&send();
+ f.onchange=async()=>{const g=f.files[0];if(!g)return;if(g.type.startsWith('image'))snd({k:'i',x:await small(g,720)});else if(g.size>2e6)alert('Video maksimum 2MB');else snd({k:'v',x:await rd(g)});f.value=''};
+ let mr,ch=[];const mic=B('🎤',0);
+ mic.onpointerdown=async()=>{try{const s=await navigator.mediaDevices.getUserMedia({audio:true});mr=new MediaRecorder(s);ch=[];mr.ondataavailable=e=>ch.push(e.data);mr.onstop=async()=>{s.getTracks().forEach(t=>t.stop());snd({k:'a',x:await rd(new Blob(ch,{type:mr.mimeType}))})};mr.start();setTimeout(()=>mr.state=='recording'&&mr.stop(),30000);mic.textContent='⏺'}catch(e){alert('Mikrofon icazəsi lazımdır')}};
+ mic.onpointerup=mic.onpointerleave=()=>{mic.textContent='🎤';mr&&mr.state=='recording'&&mr.stop()};
+ return D(l,E('div',{className:'row'},B('📎',()=>f.click()),i,mic,B('➤',send)),f)}
+
+// ===== Səs otaqları (WebRTC + ekran paylaşımı) =====
+const V={r:null,ls:null,pc:{},refs:[]},ICE={iceServers:[{urls:'stun:stun.l.google.com:19302'}]};
+const sig=(to,x)=>db.ref('v/'+V.r+'/s/'+to).push({f:me.id,d:JSON.parse(JSON.stringify(x))});
+function conn(id,init){const c=new RTCPeerConnection(ICE);V.pc[id]=c;if(init)V.ls.getTracks().forEach(t=>c.addTrack(t,V.ls));
+ c.onicecandidate=e=>e.candidate&&sig(id,e.candidate);
+ c.ontrack=e=>{const s=e.streams[0];let el=$('#s'+s.id);if(!el){el=E('video',{id:'s'+s.id,autoplay:1,playsInline:1,controls:1,className:e.track.kind=='audio'?'a':''});$('#stage').append(el)}el.srcObject=s};
+ c.onnegotiationneeded=async()=>{if(c.signalingState!='stable')return;await c.setLocalDescription(await c.createOffer());sig(id,c.localDescription)};return c}
+async function join(r){await leave();try{V.ls=await navigator.mediaDevices.getUserMedia({audio:true})}catch(e){return alert('Mikrofon icazəsi lazımdır')}
+ V.r=r;const P=db.ref('v/'+r+'/p'),S=db.ref('v/'+r+'/s/'+me.id);V.refs=[P,S];P.child(me.id).set(me.name);P.child(me.id).onDisconnect().remove();
+ P.on('child_added',s=>{if(s.key<me.id)conn(s.key,1)});
+ P.on('child_removed',s=>{const c=V.pc[s.key];c&&c.close();delete V.pc[s.key]});
+ S.on('child_added',async s=>{const m=s.val();s.ref.remove();const c=V.pc[m.f]||conn(m.f,0);
+  if(m.d.sdp){await c.setRemoteDescription(m.d);if(m.d.type=='offer'){if(!c.a){c.a=1;V.ls.getTracks().forEach(t=>c.addTrack(t,V.ls))}await c.setLocalDescription(await c.createAnswer());sig(m.f,c.localDescription)}}
+  else if(m.d.candidate)try{await c.addIceCandidate(m.d)}catch(e){}});go('voice')}
+async function leave(){V.refs.forEach(r=>r.off());if(V.r)db.ref('v/'+V.r+'/p/'+me.id).remove();Object.values(V.pc).forEach(c=>c.close());V.pc={};V.ls&&V.ls.getTracks().forEach(t=>t.stop());V.ls=null;V.r=null;$('#stage').replaceChildren()}
+async function share(){try{const s=await navigator.mediaDevices.getDisplayMedia({video:true}),t=s.getVideoTracks()[0];Object.values(V.pc).forEach(c=>c.addTrack(t,s));$('#stage').append(E('video',{srcObject:s,autoplay:1,muted:1,playsInline:1}))}catch(e){alert('Ekran paylaşımı bu cihazda dəstəklənmir')}}
+
+// ===== Blackjack (ortak masa) =====
+const dr=()=>1+Math.floor(Math.random()*13),hv=h=>{let s=h.reduce((a,c)=>a+Math.min(c,10),0);return h.includes(1)&&s<=11?s+10:s},cl=(c,i)=>({1:'A',11:'J',12:'Q',13:'K'}[c]||c)+'♠♥♦♣'[(c+i)%4];
+let G=null;
+const T={
+chat:()=>D(H('💬 Lobbi — real oyunçular'),chatBox('lobby')),
+voice:()=>{const l=D();['🎙 Böyük otaq','☕ Çayxana','👑 VIP'].forEach(r=>{const x=D(B((V.r==r?'✔ ':'Gir: ')+r,()=>join(r)),E('small',{textContent:' '}));l.append(x)});
+ return D(H('🎙 Səs otaqları'),l,V.r?D(B('🖥 Ekranı paylaş',share),B('Çıx',async()=>{await leave();go('voice')},'x'),E('small',{textContent:'Videoları yuxarıda görəcəksən'})):small_('Otağa gir, hamı bir-birini eşidir (zəng əvəzi)'))},
+bj:()=>{const t=D(),ctl=D(),bet=E('input',{type:'number',value:10000,placeholder:'Mərc'}),R_=db.ref('bj');
+ R_.on('value',s=>{t.replaceChildren();s.forEach(c=>{const v=c.val();t.append(E('div',{className:'box'},E('b',{textContent:v.n+' · mərc '+fmt(v.b)+' · '+v.s}),D(...v.p.map((x,i)=>E('span',{className:'card',textContent:cl(x,i)}))),small_('Dilər:'),D(...v.d.map((x,i)=>E('span',{className:'card',textContent:cl(x,i+2)})))))})});offs.push(()=>R_.off());
+ const sync=()=>{const r=db.ref('bj/'+me.id);r.onDisconnect().remove();r.set({n:me.name,p:G.p,d:G.s=='play'?[G.d[0]]:G.d,b:G.b,s:G.s})};
+ const fin=async()=>{while(hv(G.d)<17)G.d.push(dr());const p=hv(G.p),d=hv(G.d);G.s=p>21?'uduzdu':d>21||p>d?'qazandı':p==d?'bərabər':'uduzdu';if(G.s=='qazandı')await add(2*G.b);if(G.s=='bərabər')await add(G.b);sync();draw_()};
+ const draw_=()=>{ctl.replaceChildren(G?D(D(...G.p.map((x,i)=>E('span',{className:'card',textContent:cl(x,i)}))),small_('Cəm: '+hv(G.p)+(G.s!='play'?' · '+G.s:'')),G.s=='play'?D(B('Hit',()=>{G.p.push(dr());hv(G.p)>=21?fin():(sync(),draw_())}),B('Stand',fin)):D()):D());if(!G||G.s!='play')ctl.append(bet,B('Payla',async()=>{const b=+bet.value;if(!(b>=1000&&b<=me.money))return alert('Mərc 1.000 ₼ və pulundan az olmalıdır');await add(-b);G={b,p:[dr(),dr()],d:[dr(),dr()],s:'play'};hv(G.p)==21?fin():(sync(),draw_())}))};draw_();
+ return D(H('🃏 Blackjack masası — hamı eyni masada'),ctl,t,H('Masa söhbəti'),chatBox('bj','28dvh'))},
+city:()=>{const w=D(H('💼 İşlər (yeraltı minimum 300.000 ₼)')),cd={};
+ J.forEach(([n,a,b,rk])=>w.append(B(n+' · '+fmt(a)+'–'+fmt(b),async()=>{if(Date.now()-(cd[n]||0)<2e4)return alert('20 san gözlə');cd[n]=Date.now();if(Math.random()<rk){await add(-150000);alert('Polis basqını! −150.000 ₼')}else{const g=Math.round(a+Math.random()*(b-a));await add(g);alert('+'+fmt(g))}})));
+ const it=(name,L)=>{w.append(H(name));L.forEach(x=>w.append(D(B(x[0]+' · '+fmt(x[1])+' · 😰+'+x[2],async()=>{if(R.indexOf(me.rank)>x[3])return alert('Rütbən çatmır: bu marka yuxarı rütbələr üçündür');if(me.stress>=100)return alert('Stress 100! Gizli Məkanda dincəl');if(me.money<x[1])return alert('Pul yoxdur');await add(-x[1]);ss(x[2])}))))};
+ it('🚬 Siqaret (yaxşı markalar yüksək rütbələrə)',CG);it('🥃 Viski',WH);it('🍸 Araq',VK);
+ w.append(H('🏪 Bazar — hər kəs dükan aça bilər'));const l=D(),n=E('input',{placeholder:'Dükan adı'}),p=E('input',{placeholder:'Məhsul'}),q=E('input',{type:'number',placeholder:'Qiymət'}),r=db.ref('shops');
+ r.on('value',s=>{l.replaceChildren();s.forEach(c=>{const v=c.val();l.append(B(v.n+' – '+v.p+' – '+fmt(v.q)+' (al)',async()=>{if(me.money<v.q)return alert('Pul yoxdur');await add(-v.q);db.ref('users/'+v.o+'/money').transaction(m=>(m||0)+v.q)}))})});offs.push(()=>r.off());
+ w.append(l,n,p,q,B('Dükan aç',()=>{n.value&&q.value&&r.push({n:n.value,p:p.value,q:+q.value,o:me.id})}));
+ w.append(H('🌙 Gizli Məkan (stresi azaldır)'));const lg=D(),sel=E('select');Object.keys(NPC).forEach(k=>sel.append(E('option',{textContent:k})));w.append(sel);
+ [['Söhbət',0,-8],['Rəqs',3e4,-15],['Süfrə',1e5,-25],['Gecə 🌙',5e5,-50]].forEach(([n,c,d])=>w.append(B(n+' · '+fmt(c),async()=>{if(me.money<c)return alert('Pul yoxdur');await add(-c);ss(d);const L=NPC[sel.value];lg.prepend(E('p',{textContent:sel.value+': '+L[Math.floor(Math.random()*L.length)]+(d==-50?'  …pərdə düşdü, səhər stress azalıb.':'')}))})));w.append(lg);return w},
+bank:()=>{const sel=E('select'),a=E('input',{type:'number',placeholder:'Məbləğ'}),w=D(H('🏦 Bank'),E('p',{textContent:'Balans: '+fmt(me.money)+' · Kredit borcu: '+fmt(me.loan)}));
+ w.append(B('Maaş al (rütbəyə görə, 5 dəq)',async()=>{if(Date.now()-me.ms<3e5)return alert('Tezdir');const g=(R.length-R.indexOf(me.rank))*8000;await add(g);db.ref('users/'+me.id+'/ms').set(Date.now());alert('+'+fmt(g))}));
+ w.append(H('Kredit (faiz 10%)'),a,B('Kredit götür',async()=>{const x=+a.value;if(!(x>0&&x+me.loan<=2e6))return alert('Limit 2.000.000 ₼');await add(x);db.ref('users/'+me.id+'/loan').transaction(v=>(v||0)+Math.round(x*1.1))}),B('Borcu ödə',async()=>{if(me.money<me.loan||!me.loan)return alert('Ödəmək olmur');await add(-me.loan);db.ref('users/'+me.id+'/loan').set(0)}));
+ w.append(H('Pul göndər'),sel,B('Göndər',async()=>{const x=+a.value;if(!(x>0&&x<=me.money))return alert('Yetərsiz');await add(-x);db.ref('users/'+sel.value+'/money').transaction(v=>(v||0)+x)}));
+ U().then(us=>{us.filter(x=>x.id!=me.id).forEach(x=>sel.append(E('option',{value:x.id,textContent:x.name+' · '+x.rank})));
+  if(me.rank=='Kamandir'){w.append(H('👑 Kamandir paneli — rütbə dəyiş'));us.forEach(x=>{const s=E('select',{onchange:()=>db.ref('users/'+x.id+'/rank').set(s.value)});R.forEach(r=>s.append(E('option',{textContent:r,selected:r==x.rank})));w.append(D(E('small',{textContent:x.name+' '}),s))})}});return w},
+srv:()=>D(H('⚙ Railway qurulumu'),...['1. Bu 3 faylı (index.html, server.js, package.json) GitHub repoya yüklə.','2. railway.com → New Project → Deploy from GitHub repo → repo seç.','3. Settings → Networking → Generate Domain → link hamıya açıq olur (HTTPS, səs/ekran üçün lazımdır).','4. Məlumat itməsin: Volume əlavə et, Mount path: /data, Variables-a DATA_DIR=/data yaz.','5. Mobil: linki telefonda Ana ekrana əlavə et, ya da Capacitor ilə APK et.','6. İlk 2 qeydiyyatdan keçən Kamandir olur.'].map(x=>E('p',{textContent:x,className:'box'})))};
+localStorage.mid?enter(localStorage.mid):login();
+</script></body></html>
